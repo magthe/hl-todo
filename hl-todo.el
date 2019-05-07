@@ -159,6 +159,27 @@ controls which of the two it is."
   :group 'hl-todo
   :type 'boolean)
 
+(defcustom hl-todo-face-limit nil
+  "Whether to only highlighted keywords in text using certain faces.
+
+If this is nil, then all keywords are highlighted.  Otherwise the
+value has to be a list of faces and keywords are only highlighted
+if the text previously used one of the listed faces.
+
+For example, to only highlight keywords in comments in `prog-mode'
+use:
+  (add-hook 'prog-mode-hook
+            (lambda ()
+              (setq hl-todo-face-limit '(font-lock-comment-face))))
+
+Other faces that might be useful here are `font-lock-string-face'
+and `font-lock-doc-face'."
+  :package-version '(hl-todo . "3.2.0")
+  :group 'hl-todo
+  :type '(choice (const :tag "No limit" nil)
+                 (repeat :tag "Limit to faces" face)))
+
+
 (defcustom hl-todo-highlight-punctuation ""
   "String of characters to highlight after keywords.
 
@@ -217,7 +238,10 @@ including alphanumeric characters, cannot be used here."
              (cl-return nil))))))
 
 (defun hl-todo--inside-comment-or-string-p ()
-  (nth 8 (syntax-ppss)))
+  (and (nth 8 (syntax-ppss))
+       (or (not hl-todo-face-limit)
+           (memq (get-text-property (point) 'face)
+                 hl-todo-face-limit))))
 
 (defun hl-todo--get-face ()
   (let ((keyword (match-string 2)))
@@ -278,7 +302,8 @@ A negative argument means move backward that many keywords."
                     (goto-char (match-end 0)))
                   (or (hl-todo--search)
                       (user-error "No more matches"))))
-      (cl-decf arg))))
+      (when (hl-todo-inside-comment-or-docstring-p)
+        (cl-decf arg)))))
 
 ;;;###autoload
 (defun hl-todo-previous (arg)
@@ -296,7 +321,8 @@ A negative argument means move forward that many keywords."
                       (progn (goto-char start)
                              (user-error "No more matches")))))
       (goto-char (match-end 0))
-      (cl-decf arg))))
+      (when (hl-todo-inside-comment-or-docstring-p)
+        (cl-decf arg)))))
 
 ;;;###autoload
 (defun hl-todo-occur ()
